@@ -16,6 +16,7 @@ local players = {}
 local playersOrder = {}
 local currentPlayer = nil
 local currentColor = 0
+local currentType = 0
 local playerDroppingCard = ''
 local lastCardIndexDropped = 0
 local nextCard = math.random(Card.lastCardId)
@@ -25,8 +26,6 @@ local drawToMatchCard = 0
 
 local lastSyncedGameData = ''
 local syncNeeded = false
-local newDataToSync = false
-local lastSyncedCurrentPlayer = ''
 local syncId = 0
 
 Sync.events = {
@@ -67,6 +66,7 @@ local function resetGame()
    playersOrder = {}
    currentPlayer = nil
    currentColor = 0
+   currentType = 0
    playerDroppingCard = ''
    lastCardIndexDropped = 0
    gamePos = vec(0, 0, 0)
@@ -120,7 +120,7 @@ local function requestSync()
       syncId = (syncId + 1) % 256
    end
    syncNeeded = true
-   newDataToSync = true
+   lastSyncedGameData = ''
 end
 
 ---sets game state
@@ -203,36 +203,6 @@ function Sync.addPlayer(name, noSync)
       rot = 0,
       cards = {}
    }
-   Sync.events.PLAYER_JOIN(name)
-   if not currentPlayer then
-      Sync.setCurrentPlayer(name)
-   end
-end
-
----adds player to game, returns player object, syncs data in next tick
----@param name string
----@param cards number[]?
----@param noSync boolean? # used internally by library
-function Sync.addPlayerAndSetCards(name, cards, noSync)
-   if players[name] then
-      return
-   end
-   updateGameState()
-   table.insert(playersOrder, name)
-   if cards==nil then
-      cards={}
-      for k = 1, 7, 1 do
-			table.insert(cards,Card.getRandomCard())
-		end
-   end
-   players[name] = {
-      position = #playersOrder,
-      rot = 0,
-      cards = cards
-   }
-   if not noSync then
-      requestSync()
-   end
    Sync.events.PLAYER_JOIN(name)
    if not currentPlayer then
       Sync.setCurrentPlayer(name)
@@ -349,6 +319,9 @@ end
 ---gets current color
 ---@return integer
 function Sync.getColor()
+   local colr=colorIdxToHex[currentColor]or colorIdxToHex[5]
+   avatar:setColor(vectors.hexToRGB(colr))
+   avatar:store("lumi_color",vectors.hexToRGB(colr))
    return currentColor
 end
 
@@ -361,9 +334,28 @@ function Sync.drawCard(name, card)
       card = nextCard
       nextCard = math.random(Card.lastCardId)
    end
+   if Sync.getBitFlag(3) then
+      local id,color=Card.fullIdToTypeAndColor(card)
+      if color~=WildColorID then color=WildColorID end
+      card=Card.typeAndColorToFullId(id,color)
+   end
    table.insert(players[name].cards, card)
    Sync.events.CARD_DRAWED(name, card)
    requestSync()
+end
+
+---removes card from player
+---@param name string
+---@param cardIndex number
+function Sync.removeCard(name, cardIndex)
+   updateGameState()
+   local card = table.remove(players[name].cards, cardIndex)
+   Sync.events.CARD_REMOVED(name, card)
+   requestSync()
+end
+
+function Sync.getPlayers()
+   return players
 end
 
 ---drops card with specific index
@@ -374,9 +366,12 @@ function Sync.dropCard(name, cardIndex)
    local card = players[name].cards[cardIndex]
    local id,color=Card.fullIdToTypeAndColor(card)
    local id2,color2=id,color
+   --if color2==RandomColorID then color=#Card.colorUV-2 end
+	--if id2==RandomColorID then cardType=(#Card.iconUV-2)+1 end
+   Sync.events.CARD_DROPPED(name, cardIndex, card)
    table.insert(players['!'].cards, card)
    table.remove(players[name].cards, cardIndex)
-   Sync.events.CARD_DROPPED(name, cardIndex, card)
+   --if id2~=id or color2~=color then card=Card.typeAndColorToFullId(id,color) end
    local dropAmount=0
 	if id==19 then dropAmount=12 end
 	if id==20 then dropAmount=4 end
@@ -435,16 +430,7 @@ function Sync.dropCard(name, cardIndex)
    requestSync()
    playerDroppingCard = name
    lastCardIndexDropped = cardIndex
-end
-
----removes card from player
----@param name string
----@param cardIndex number
-function Sync.removeCard(name, cardIndex)
-   updateGameState()
-   local card = table.remove(players[name].cards, cardIndex)
-   Sync.events.CARD_REMOVED(name, card)
-   requestSync()
+   requestCardUpdate(name) requestCardUpdate("!")
 end
 
 ---sets next card that will be drawed when no card is specified
@@ -532,6 +518,35 @@ function Sync.setCard(name, idx, card, noSync)
       requestSync()
    end
 end
+---adds player to game, returns player object, syncs data in next tick
+---@param name string
+---@param cards number[]?
+---@param noSync boolean? # used internally by library
+function Sync.addPlayerAndSetCards(name, cards, noSync)
+   if players[name] then
+      return
+   end
+   updateGameState()
+   table.insert(playersOrder, name)
+   if cards==nil then
+      cards={}
+      for k = 1, 7, 1 do
+			table.insert(cards,Card.getRandomCard())
+		end
+   end
+   players[name] = {
+      position = #playersOrder,
+      rot = 0,
+      cards = cards
+   }
+   if not noSync then
+      requestSync()
+   end
+   Sync.events.PLAYER_JOIN(name)
+   if not currentPlayer then
+      Sync.setCurrentPlayer(name)
+   end
+end
 
 ---returns cards of specific player
 ---@param name string
@@ -539,6 +554,17 @@ end
 function Sync.getCards(name)
    local cards = {}
    for i, card in pairs(players[name].cards) do
+      cards[i] = card
+   end
+   return cards
+end
+
+---returns cards of specific player
+---@param name string
+---@return number[]
+function Sync.getDeckCards(name)
+   local cards = {}
+   for i, card in pairs(players["!"].cards) do
       cards[i] = card
    end
    return cards
@@ -638,11 +664,6 @@ function Sync.getDrawToMatchCard()
    return drawToMatchCard
 end
 
----@return string
-function Sync.getLastSyncedCurrentPlayer()
-   return lastSyncedCurrentPlayer
-end
-
 ---@param card integer
 ---@param noSync boolean?
 function Sync.setDrawToMatchCard(card, noSync)
@@ -657,14 +678,35 @@ function Sync.setDrawToMatchCard(card, noSync)
 end
 
 ---@param encoded string
-local function unaSync(encoded)
-   if not (lastSyncedGameData ~= encoded or newDataToSync) then
+---@param newPosX number
+---@param newPosY number
+---@param newPosZ number
+function pings.unaGame_sync(encoded, newPosX, newPosY, newPosZ)
+   if not player:isLoaded() then
+      return
+   end
+   if host:isHost() then
+      local newSyncId = encoded:byte(13)
+      local diff = (syncId - newSyncId + 128) % 256 - 128
+      if diff >= 1 then
+         return
+      end
+   end
+   if not host:isHost() then
+      local playerPos = player:getPos()
+      local newGamePos = vec(
+         decodePos(playerPos.x, newPosX),
+         decodePos(playerPos.y, newPosY),
+         decodePos(playerPos.z, newPosZ)
+      )
+      Sync.setGamePos(newGamePos, true)
+   end
+   -- prevent updates when nothing changed
+   if lastSyncedGameData == encoded then
       return
    end
    lastSyncedGameData = encoded
-   newDataToSync = false
-
-   if encoded == "" then return end
+   -- read game state
    Sync.setGameState(encoded:byte(1), true)
    if gameState == 0 then -- prevent everything from updating because reset should do that already
       return
@@ -695,7 +737,6 @@ local function unaSync(encoded)
    end
    -- read variables
    Sync.setCurrentPlayer(encoded:byte(2), true)
-   lastSyncedCurrentPlayer = currentPlayer
    Sync.setColor(encoded:byte(3), true)
    playerDroppingCard = playersOrder[encoded:byte(4)] or ''
    lastCardIndexDropped = decodeShort(encoded:sub(5, 6))
@@ -750,33 +791,10 @@ local function unaSync(encoded)
          Sync.removePlayer(name, true, true)
       end
    end
-end
-
----@param encoded string
----@param newPosX number
----@param newPosY number
----@param newPosZ number
-function pings.unaGame_sync(encoded, newPosX, newPosY, newPosZ)
-   if not player:isLoaded() then
-      return
-   end
-   if host:isHost() then
-      local newSyncId = encoded:byte(13)
-      local diff = (syncId - newSyncId + 128) % 256 - 128
-      if diff >= 1 then
-         return
-      end
-   else
-      local playerPos = player:getPos()
-      local newGamePos = vec(
-         decodePos(playerPos.x, newPosX),
-         decodePos(playerPos.y, newPosY),
-         decodePos(playerPos.z, newPosZ)
-      )
-      Sync.setGamePos(newGamePos, true)
-   end
-
-   unaSync(encoded)
+   -- test data
+   -- printTable(playersOrder)
+   -- printTable(players, 2)
+   -- print('size', #encoded)
 end
 
 ---@param tbl (string|number)[]
@@ -825,10 +843,6 @@ end
 
 function Sync.sendSyncPing()
    pings.unaGame_sync(encodeSyncPing())
-end
-
-function Sync.loadLastSync()
-   unaSync(lastSyncedGameData)
 end
 
 if host:isHost() then

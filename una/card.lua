@@ -2,7 +2,7 @@
 
 RandomColorID,RandomIconID=8,29
 WildColorID=RandomColorID+1
-Wild2ColorID=254
+Wild2ColorID=RandomColorID+2
 colorIdxToHex={
    '#d4362b', -- RED
    '#f7cf33', -- YELLOW
@@ -42,6 +42,7 @@ local CARD_DIM_HALF = CARD_DIM / 2
 local cards = {} ---@type Card[]
 
 local cardIdsLookup = {} ---@type table<string, Card>
+local randomCardList = {}
 
 --[────────────────────────────────────────-< CARD API >-────────────────────────────────────────]--
 
@@ -104,7 +105,7 @@ CardAPI.iconUV = {
 --	vec(54,33),
 	vec(45,  0), -- RANDOM
 }
-RandomIconID,RandomColorID,WildColorID,LimboColor,LimboColor2=#CardAPI.iconUV,#CardAPI.colorUV-1,#CardAPI.colorUV,#CardAPI.colorUV+2,#CardAPI.colorUV+3
+RandomIconID,RandomColorID,WildColorID,Wild2ColorID,LimboColor,LimboColor2=#CardAPI.iconUV,#CardAPI.colorUV-1,#CardAPI.colorUV,#CardAPI.colorUV+1,#CardAPI.colorUV+2,#CardAPI.colorUV+3
 ---@alias CardType
 ---| "EMPTY"
 ---| "ZERO"
@@ -249,7 +250,6 @@ function CardAPI.typeToIndex(type)
 	return CardAPI.type2index[type]
 end
 
-local randomCardList = {}
 function CardAPI.regenCards()
 	randomCardList={}
 	if not bit32.btest(bitFlags, 2 ^ 4) then
@@ -393,7 +393,7 @@ function CardAPI.new(parent)
 	setmetatable(new, Card)
 	new:matrixApply()
 	cards[nextFree] = new
-	new.model2.Icon:setUVPixels(CardAPI.playerUV[math.random(#CardAPI.playerUV)])
+	new.model2.Icon:setUV(CardAPI.playerUV[math.random(#CardAPI.playerUV)] / 81)
 	return new
 end
 
@@ -404,7 +404,9 @@ end
 --- 2 YELLOW  
 --- 3 GREEN  
 --- 4 BLUE  
---- 5 BLACK  
+--- 5 MISSING
+--- 6 WHITE  
+--- 7 BLACK  
 ---```
 ---@param color integer
 ---@return Card
@@ -413,17 +415,17 @@ function Card:setColor(color)
 		error('card color "' .. color .. '" dosent exist', 1)
 	end
 	self.color = color
-	self.model2.Background:setUVPixels(CardAPI.colorUV[color])
+	self.model2.Background:setUV(CardAPI.colorUV[color] / 81)
 	return self
 end
 
 ---```
 ---
----1 EMPTY  6 FOUR   11 NINE  16 WILD  
----2 ZERO   7 FIVE   12 REVERSE  17 UNKNOWN
----3 ONE    8 SIX    13 SKIP  
----4 TWO    9 SEVEN  14 DRAW2  
----5 THREE  10 EIGHT 15 DRAW4  
+---1 EMPTY  6 FOUR   11 NINE     16 WILD     21 DROPCOLOR
+---2 ZERO   7 FIVE   12 REVERSE  17 UNKNOWN  22 DROP2
+---3 ONE    8 SIX    13 SKIP     18 DRAW12   23 DROP1
+---4 TWO    9 SEVEN  14 DRAW2    19 DROP12   24 DRAW1
+---5 THREE  10 EIGHT 15 DRAW4    20 DROP4    25 DROPSPECIAL
 ---```
 ---@param type integer
 ---@return Card
@@ -432,7 +434,9 @@ function Card:setType(type)
 		error('card type "' .. type .. '" dosent exist', 1)
 	end
 	self.type = type
-	self.model2.numbers:setUVPixels(CardAPI.iconUV[type])
+	self.model2.numbers:setUV(CardAPI.iconUV[type] / 81)
+	--self.model.TopNumber:setUV(CardAPI.iconUV[type] / 81)
+	--self.model.BottomNumber:setUV(CardAPI.iconUV[type] / 81)
 	return self
 end
 
@@ -595,10 +599,10 @@ end
 ---@param scale number?
 ---@return Card
 function Card:setLabel(text,scale)
-	self.model:removeTask("label")
+	self.model:removeTask("subLabel")
 	if text then
 		local S = INV_SCALE*(scale or 1)
-		self.model2:newText("label")
+		self.model2:newText("subLabel")
 		:setLight(15,15)
 		:setScale(S)
 		:setText(text)
@@ -633,9 +637,9 @@ end
 ---@return Card
 function Card:setIcon(icon)
 	if icon then
-		self.model2.Icon:setUVPixels(CardAPI.playerUV[icon])
+		self.model2.Icon:setUV(CardAPI.playerUV[icon]/80)
 	else
-		self.model2.Icon:setUVPixels(CardAPI.playerUV[math.random(#CardAPI.playerUV)])
+		self.model2.Icon:setUV(CardAPI.playerUV[math.random(#CardAPI.playerUV)]/80)
 	end
 	return self
 end

@@ -28,10 +28,20 @@ function addPlayer(name,cards)
             end
         end
     elseif type(name)=="string" then
-        if gameState==2 then
-            Sync.addPlayerAndSetCards(name,cards,false)
+        if name=="!All" then
+            for i,v in pairs(world.getPlayers()) do
+                if gameState==2 then
+                    Sync.addPlayerAndSetCards(v:getName(),cards,false)
+                else
+                    Sync.addPlayer(v:getName(),false)
+                end
+            end
         else
-            Sync.addPlayer(name,false)
+            if gameState==2 then
+                Sync.addPlayerAndSetCards(name,cards,false)
+            else
+                Sync.addPlayer(name,false)
+            end
         end
     else
         error("name not string or table of strings")
