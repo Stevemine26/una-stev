@@ -1,5 +1,28 @@
 ---@diagnostic disable: param-type-mismatch
 
+RandomColorID,RandomIconID=8,29
+WildColorID=RandomColorID+1
+Wild2ColorID=254
+colorIdxToHex={
+   '#d4362b', -- RED
+   '#f7cf33', -- YELLOW
+   '#57c436', -- GREEN
+   '#00d4ff', -- BLUE
+   '#ff00ff', -- MISSING
+   '#ffffff', -- WHITE
+   '#0000ff', -- BSOD
+   '#000000', -- RANDOM
+   '#2c2d36', -- BLACK
+}
+cardEmojis={
+	wild=':uno_wild:',
+	draw2=':uno_draw_2',
+	draw4=':uno_draw_4',
+	reverse=':uno_reverse',
+	skip=':uno_skip',
+}
+bitFlags = 0
+
 local param = require("una.lib.param")
 local Event = require("una.lib.event")
 
@@ -32,17 +55,25 @@ CardAPI.ROOT_MODEL = ROOT_MODEL
 ---| "YELLOW"
 ---| "GREEN"
 ---| "BLUE"
+---| "MISSING"
+---| "WHITE"
+---| "BSOD"
+---| "RANDOM"
 ---| "BLACK"
 
-local colorUV = {
+CardAPI.colorUV = {
 	vec( 0, 0), -- RED
 	vec(10, 0), -- YELLOW
 	vec(20, 0), -- GREEN
 	vec(30, 0), -- BLUE
+	vec(60, 0), -- MISSING
+	vec(50, 0), -- WHITE
+	vec(70, 0), -- BSOD
+	vec(60, 0), -- RANDOM
 	vec(40, 0), -- BLACK
 }
 
-local iconUV = {
+CardAPI.iconUV = {
 	vec(45, 11), -- EMPTY   
 	vec( 0,  0), -- ZERO    
 	vec( 9,  0), -- ONE     
@@ -60,7 +91,20 @@ local iconUV = {
 	vec(27, 22), -- DRAW4   
 	vec(36, 22), -- WILD    
 	vec(45,  0), -- UNKNOWN 
+	vec(45, 22), -- DRAW12  
+	vec(54, 22), -- DROP12  
+	vec(36, 33), -- DROP4   
+	vec(45, 33), -- DROPCOLOR
+	vec(27, 33), -- DROP2
+	vec(18, 33), -- DROP1
+	vec(18, 44), -- DRAW1
+	vec(27, 44), -- DROPSPECIAL
+	vec(36, 44), -- DROPSPECIALNEXT
+	vec(45, 44), -- DROPCOLORNEXT
+--	vec(54,33),
+	vec(45,  0), -- RANDOM
 }
+RandomIconID,RandomColorID,WildColorID,LimboColor,LimboColor2=#CardAPI.iconUV,#CardAPI.colorUV-1,#CardAPI.colorUV,#CardAPI.colorUV+2,#CardAPI.colorUV+3
 ---@alias CardType
 ---| "EMPTY"
 ---| "ZERO"
@@ -79,16 +123,42 @@ local iconUV = {
 ---| "DRAW4"
 ---| "WILD"
 ---| "UNKNOWN"
+---| "DRAW12"
+---| "DROP12"
+---| "DROP4"
+---| "DROPCOLOR"
+---| "DROP2"
+---| "DROP1"
+---| "DRAW1"
+---| "DROPSPECIAL"
+---| "DROPSPECIALNEXT"
+---| "DROPCOLORNEXT"
+---| "LIMBO"
+---| "RANDOM"
 
-local index2color = {
+CardAPI.playerUV = {
+	vec(6,0), -- TOAST
+	vec(6,8), -- GN
+	vec(12,8), -- AURIA
+	vec(12,0), -- STEVEMINE26
+	vec(0,8), -- CLST
+	vec(0,16), -- NIKO
+	vec(6,16) -- AZURE (Hazzy)
+}
+
+
+CardAPI.index2color = {
 	"RED",
 	"YELLOW",
 	"GREEN",
 	"BLUE",
+	"MISSING",
+	"WHITE",
+	"BSOD",
 	"BLACK",
 }
 
-local index2type = {
+CardAPI.index2type = {
 	"EMPTY",
 	"ZERO",
 	"ONE",
@@ -106,18 +176,30 @@ local index2type = {
 	"DRAW4",
 	"WILD",
 	"UNKNOWN",
+	"DRAW12",
+	"DROP12",
+	"DROP4",
+	"DROPCOLOR",
+	"DROP2",
+	"DROP1",
+	"DRAW1",
+	"DROPSPECIAL",
+	"DROPSPECIALNEXT",
+	"DROPCOLORNEXT",
+--	"LIMBO",
+	"RANDOM",
 }
 
-local color2index = {}
-local type2index = {}
-for i, color in ipairs(index2color) do
-	color2index[color] = i
+CardAPI.color2index = {}
+CardAPI.type2index = {}
+for i, color in ipairs(CardAPI.index2color) do
+	CardAPI.color2index[color] = i
 end
-for i, type in ipairs(index2type) do
-	type2index[type] = i
+for i, type in ipairs(CardAPI.index2type) do
+	CardAPI.type2index[type] = i
 end
 
-CardAPI.lastCardId = #index2color * #index2type
+CardAPI.lastCardId = #CardAPI.index2color * #CardAPI.index2type
 
 ---converts full card id to color and type ids
 ---@param id number
@@ -125,7 +207,7 @@ CardAPI.lastCardId = #index2color * #index2type
 ---@return number # color
 function CardAPI.fullIdToTypeAndColor(id)
    id = id - 1
-   return id % #index2type + 1, math.floor(id / #index2type) + 1
+   return id % #CardAPI.index2type + 1, math.floor(id / #CardAPI.index2type) + 1
 end
 
 ---converts card type and color to full id
@@ -133,50 +215,97 @@ end
 ---@param color number
 ---@return number
 function CardAPI.typeAndColorToFullId(cardType, color)
-   return (cardType - 1) + #index2type * (color - 1) + 1
+   return (cardType - 1) + #CardAPI.index2type * (color - 1) + 1
 end
 
 ---@param id integer?
 ---@return string
 function CardAPI.indexToType(id)
 	if not id then
-		id = math.random(1, #index2type)
+		id = math.random(1, #CardAPI.index2type)
 	end
-	return index2type[id]
+	return CardAPI.index2type[id]
 end
 
 
 ---@param id integer?
 function CardAPI.indexToColor(id)
 	if not id then
-		id = math.random(1, #index2color)
+		id = math.random(1, #CardAPI.index2color)
 	end
-	return index2color[id]
+	return CardAPI.index2color[id]
 end
 
 
 ---@param clr CardColor
 ---@return integer
 function CardAPI.colorToIndex(clr)
-	return color2index[clr]
+	return CardAPI.color2index[clr]
 end
 
 ---@param type CardType
 ---@return integer
 function CardAPI.typeToIndex(type)
-	return type2index[type]
+	return CardAPI.type2index[type]
 end
 
 local randomCardList = {}
-for color = 1, 4 do
-	for cardType = 2, 14 do
-		local id = CardAPI.typeAndColorToFullId(cardType, color)
-		table.insert(randomCardList, id)
-		table.insert(randomCardList, id) -- give higher chance to colorful cards
+function CardAPI.regenCards()
+	randomCardList={}
+	if not bit32.btest(bitFlags, 2 ^ 4) then
+		for color = 1, RandomColorID-1 do
+			for cardType = 2, 11 do
+				local id = CardAPI.typeAndColorToFullId(cardType, color)
+				table.insert(randomCardList, id)
+				table.insert(randomCardList, id)
+				table.insert(randomCardList, id)
+				table.insert(randomCardList, id) -- give higher chance to number cards
+			end
+			for cardType = 12, 14 do
+				local id = CardAPI.typeAndColorToFullId(cardType, color)
+				table.insert(randomCardList, id)
+				table.insert(randomCardList, id) -- give higher chance to colorful cards
+			end
+			for cardType = 20,21 do
+				local id = CardAPI.typeAndColorToFullId(cardType, color)
+				table.insert(randomCardList, id)
+			end
+			for cardType = 22, 27 do
+				local id = CardAPI.typeAndColorToFullId(cardType, color)
+				if (cardType==26 or cardType==27)  then
+					if bit32.btest(bitFlags, 2 ^ 2) then
+						table.insert(randomCardList, id)
+					end
+				else
+					table.insert(randomCardList, id)
+					table.insert(randomCardList, id) -- give higher chance to colorful cards
+				end
+			end
+			--table.insert(randomCardList, CardAPI.typeAndColorToFullId(RandomIconID,RandomColorID))
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(25, WildColorID))
+			if bit32.btest(bitFlags, 2 ^ 2) then table.insert(randomCardList, CardAPI.typeAndColorToFullId(26, WildColorID)) end
+			local id = CardAPI.typeAndColorToFullId(20, color)
+			table.insert(randomCardList, id)
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(15, WildColorID))
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(16, WildColorID))
+		end
+		if bit32.btest(bitFlags, 2 ^ 2) then
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(18, WildColorID))
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(19, WildColorID))
+		end
+	else
+		for color = 1, 4 do
+			for cardType = 2, 14 do
+				local id = CardAPI.typeAndColorToFullId(cardType, color)
+				table.insert(randomCardList, id)
+				table.insert(randomCardList, id) -- give higher chance to colorful cards
+			end
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(15, WildColorID))
+			table.insert(randomCardList, CardAPI.typeAndColorToFullId(16, WildColorID))
+		end
 	end
-	table.insert(randomCardList, CardAPI.typeAndColorToFullId(15, 5))
-	table.insert(randomCardList, CardAPI.typeAndColorToFullId(16, 5))
 end
+CardAPI.regenCards()
 
 ---@return number
 function CardAPI.getRandomCard()
@@ -187,6 +316,10 @@ end
 ---@return boolean
 function CardAPI.isValidCardId(id)
 	return id >= 1 and id <= CardAPI.lastCardId
+end
+
+function CardAPI.getCardIdsLookup()
+	return cardIdsLookup
 end
 
 CardAPI.CARD_PRESSED = Event.new()
@@ -260,7 +393,7 @@ function CardAPI.new(parent)
 	setmetatable(new, Card)
 	new:matrixApply()
 	cards[nextFree] = new
-	new.model2.Icon:setUVPixels(math.random(0,2)*8,0)
+	new.model2.Icon:setUVPixels(CardAPI.playerUV[math.random(#CardAPI.playerUV)])
 	return new
 end
 
@@ -276,11 +409,11 @@ end
 ---@param color integer
 ---@return Card
 function Card:setColor(color)
-	if not colorUV[color] then
+	if not CardAPI.colorUV[color] then
 		error('card color "' .. color .. '" dosent exist', 1)
 	end
 	self.color = color
-	self.model2.Background:setUVPixels(colorUV[color])
+	self.model2.Background:setUVPixels(CardAPI.colorUV[color])
 	return self
 end
 
@@ -295,11 +428,11 @@ end
 ---@param type integer
 ---@return Card
 function Card:setType(type)
-	if not iconUV[type] then
+	if not CardAPI.iconUV[type] then
 		error('card type "' .. type .. '" dosent exist', 1)
 	end
 	self.type = type
-	self.model2.numbers:setUVPixels(iconUV[type])
+	self.model2.numbers:setUVPixels(CardAPI.iconUV[type])
 	return self
 end
 
@@ -473,6 +606,36 @@ function Card:setLabel(text,scale)
 		:setAlignment("CENTER")
 		:setOutline(true)
 		:setPos(-0.5*S,0.3*INV_SCALE,(client.getTextHeight(text)*0.5-1)*S)
+	end
+	return self
+end
+
+---@param text string?
+---@param scale number?
+---@return Card
+function Card:setSubLabel(text,scale)
+	self.model:removeTask("label")
+	if text then
+		local S = INV_SCALE*(scale or 1)
+		self.model2:newText("label")
+		:setLight(15,15)
+		:setScale(S/2)
+		:setText(text)
+		:setRot(90,0,0)
+		:setAlignment("CENTER")
+		:setOutline(true)
+		:setPos(-0.5*S,0.3*INV_SCALE,(client.getTextHeight(text)*-0.9-1)*S)
+	end
+	return self
+end
+
+---@param icon number?
+---@return Card
+function Card:setIcon(icon)
+	if icon then
+		self.model2.Icon:setUVPixels(CardAPI.playerUV[icon])
+	else
+		self.model2.Icon:setUVPixels(CardAPI.playerUV[math.random(#CardAPI.playerUV)])
 	end
 	return self
 end

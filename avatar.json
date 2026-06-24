@@ -1,11 +1,13 @@
 {
-	"name": "UNA",
+	"name": "UNA Stev",
 	"description": "UNOrginal? card game",
 	"authors": [
 		"GNanimates",
 		"AuriaFoxGirl",
 		"§f§nArtist§r",
-		"ToastTextures"
+		"ToastTextures",
+		"§f§nMod By§r",
+		"Stevemine26"
 	],
 	"color": "#ffeb57",
 	"badge_color_donator": "#ffeb57"

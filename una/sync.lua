@@ -4,7 +4,7 @@ local Sync = {}
 local Event = require("una.lib.event")
 local Card = require("una.card")
 
-local gameState = 0 -- 0 - not playing, 1 - waiting for players, 2 - playing
+gameState = 0 -- 0 - not playing, 1 - waiting for players, 2 - playing
 
 -- SYNC_TESTING.lua (in main.lua :3)
 local gamePos = vec(0, 0, 0)
@@ -20,7 +20,7 @@ local playerDroppingCard = ''
 local lastCardIndexDropped = 0
 local nextCard = math.random(Card.lastCardId)
 local drawCardsCount = 0
-local bitFlags = 0
+bitFlags = 0
 local drawToMatchCard = 0
 
 local lastSyncedGameData = ''
@@ -209,6 +209,36 @@ function Sync.addPlayer(name, noSync)
    end
 end
 
+---adds player to game, returns player object, syncs data in next tick
+---@param name string
+---@param cards number[]?
+---@param noSync boolean? # used internally by library
+function Sync.addPlayerAndSetCards(name, cards, noSync)
+   if players[name] then
+      return
+   end
+   updateGameState()
+   table.insert(playersOrder, name)
+   if cards==nil then
+      cards={}
+      for k = 1, 7, 1 do
+			table.insert(cards,Card.getRandomCard())
+		end
+   end
+   players[name] = {
+      position = #playersOrder,
+      rot = 0,
+      cards = cards
+   }
+   if not noSync then
+      requestSync()
+   end
+   Sync.events.PLAYER_JOIN(name)
+   if not currentPlayer then
+      Sync.setCurrentPlayer(name)
+   end
+end
+
 ---removes player with specific name from game, syncs data in next tick
 ---please remember to change current player before removing it
 ---@param name string
@@ -342,9 +372,66 @@ end
 function Sync.dropCard(name, cardIndex)
    updateGameState()
    local card = players[name].cards[cardIndex]
+   local id,color=Card.fullIdToTypeAndColor(card)
+   local id2,color2=id,color
    table.insert(players['!'].cards, card)
    table.remove(players[name].cards, cardIndex)
    Sync.events.CARD_DROPPED(name, cardIndex, card)
+   local dropAmount=0
+	if id==19 then dropAmount=12 end
+	if id==20 then dropAmount=4 end
+   if id==22 then dropAmount=2 end
+	if id==23 then dropAmount=1 end
+   if id==21 or id==27 then
+      if not Sync.getBitFlag(3) then
+         local name2=name
+         if id==27 then
+            local playersOrder = Sync.getPlayersOrder()
+            name2 = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
+         end
+         local cards=Sync.getCards(name2)
+         local cardIDXs={}
+         for i,card2 in ipairs(cards) do
+            local _,color2=Card.fullIdToTypeAndColor(card2)
+            if color2==color then table.insert(cardIDXs,i)end end
+         while #cardIDXs>0 do
+            Sync.removeCard(name2,cardIDXs[#cardIDXs])
+            cards,cardIDXs=Sync.getCards(name2),{}
+            for i,card2 in ipairs(cards) do
+               local _,color2=Card.fullIdToTypeAndColor(card2)
+               if color2==color then table.insert(cardIDXs,i)end end
+         end
+      end
+   end
+   if id==25 or id==26 then
+      local name2=name
+      if id==26 then
+         local playersOrder = Sync.getPlayersOrder()
+         name2 = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
+      end
+      local cards=Sync.getCards(name2)
+      local cardIDXs={}
+      for i,card2 in ipairs(cards) do
+         local id2,_=Card.fullIdToTypeAndColor(card2)
+         if id2>11 then table.insert(cardIDXs,i)end end
+      while #cardIDXs>0 do
+         Sync.removeCard(name2,cardIDXs[#cardIDXs])
+         cards,cardIDXs=Sync.getCards(name2),{}
+         for i,card2 in ipairs(cards) do
+            local id2,_=Card.fullIdToTypeAndColor(card2)
+            if id2>11 then table.insert(cardIDXs,i)end end
+      end
+   end
+   if dropAmount>0 then
+      for _=1,dropAmount do
+         local cards=Sync.getCards(name)
+			local cardCount=#cards
+			if cardCount>0 then
+				local rand=math.random(cardCount)
+				Sync.removeCard(name,rand)
+			end
+      end
+   end
    requestSync()
    playerDroppingCard = name
    lastCardIndexDropped = cardIndex
@@ -395,6 +482,38 @@ function Sync.setCards(name, cards, noSync)
    updateGameState()
    local playerData = players[name]
    -- call events
+   for card, count in pairs(cardsDiff(cards, playerData.cards)) do
+      if count >= 1 then -- cards added
+         for _ = 1, count do
+            Sync.events.CARD_DRAWED(name, card)
+         end
+      elseif count <= -1 then -- cards removed
+         for _ = 1, -count do
+            Sync.events.CARD_REMOVED(name, card)
+         end
+      end
+   end
+   -- set cards
+   playerData.cards = cards
+   -- sync
+   if not noSync then
+      requestSync()
+   end
+end
+
+---sets card
+---@param name string
+---@param card number
+---@param noSync boolean? # used internally by library
+function Sync.setCard(name, idx, card, noSync)
+   updateGameState()
+   local playerData = players[name]
+   -- call events
+   local cards={}
+   for k,v in pairs(playerData.cards) do
+      cards[k]=v
+   end
+   cards[idx]=card
    for card, count in pairs(cardsDiff(cards, playerData.cards)) do
       if count >= 1 then -- cards added
          for _ = 1, count do

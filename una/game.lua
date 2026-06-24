@@ -55,10 +55,12 @@ local function removeCard(card)
 	}
 end
 
-local gameSettings = {
-	{name = "+2 on +4\nstacking", bit = 0, default = true},
-	{name = "+4 on +2\nstacking", bit = 1, default = true},
-	{name = "require\nplaying\ndrawed\ncard", bit = 2, default = true},
+gameSettings = {
+	{name="draw\ncard\nstacking",bit=0,default=true},
+	{name="require\nplaying\ndrawed\ncard",bit=1,default=true},
+	{name="evil\ncards",bit=2,default=false},
+	{name="oops,\nall\nwild!\n(WIP)",bit=3,default=false},
+	{name="normal\nmode",bit=4,default=false}
 }
 
 --[[
@@ -170,7 +172,7 @@ local sceneIntermission = Macro.new(function (events, ...)
 
 			local function updateState(x)
 				Sync.setBitFlag(setting.bit, x)
-				card:setColor(x and 3 or 5)
+				card:setColor(x and 3 or 1)
 			end
 			updateState(Sync.getBitFlag(setting.bit))
 
@@ -206,13 +208,29 @@ local sceneIntermission = Macro.new(function (events, ...)
 			else
 				card = Card.new()
 				card:setTag("playerList")
-					:setColor(5)
+					:setColor(WildColorID)
 					:setType(1)
 					:setLabel(players[i],0.66)
 					:setPos(pos)
 					:setRot(rot)
 					:setScale(0, 0, 0)
 					:setOwner(hostName)
+
+				if players[i]=="ToastTextures" then
+					card:setIcon(1)
+				elseif players[i]=="GNUI" then
+					card:setIcon(2)
+				elseif players[i]=="AuriaFoxGirl" then
+					card:setIcon(3)
+				elseif players[i]=="Stevemine26" then
+					card:setIcon(4)
+				elseif players[i]=="Just_Ghasty" then
+					card:setIcon(5)
+				elseif players[i]=="NikoSolstice" then
+					card:setIcon(6)
+				elseif players[i]=="HazzyMattyThing" then
+					card:setIcon(7)
+				end
 
 				card.PRESSED:register(function()
 					if name == hostName then
@@ -341,7 +359,9 @@ local sceneGame = Macro.new(function (events, ...)
 	local drawToMatchCard = nil
 
 	local drawCardsCountModel = worldModel:newPart("drawCardsCount", "CAMERA")
+	local nextPlayerModel = worldModel:newPart("nextPlayerIndicator", "CAMERA")
 	local drawCardsCountText = drawCardsCountModel:newText("")
+	local nextPlayerText = nextPlayerModel:newText("")
 	drawCardsCountModel:setPivot(-16, 10, 0)
 
 	drawCardsCountText:setOutline(true)
@@ -349,7 +369,10 @@ local sceneGame = Macro.new(function (events, ...)
 		:setScale(0.5, 0.5, 0.5)
 		:setLight(15, 15)
 
-
+	nextPlayerText:setOutline(true)
+		:setAlignment("CENTER")
+		:setScale(0.5, 0.5, 0.5)
+		:setLight(15, 15)
 
 	---@type {[string]: {[number]: Card[]}}
 	local cardInventory = {}
@@ -404,7 +427,7 @@ local sceneGame = Macro.new(function (events, ...)
 	---@type {[string]: true}
 	local playersCardsToUpdate = {}
 
-	local function requestCardUpdate(name)
+	function requestCardUpdate(name)
 		playersCardsToUpdate[name] = true
 	end
 
@@ -510,7 +533,7 @@ local sceneGame = Macro.new(function (events, ...)
 			return
 		end
 		card:setType(17)
-			:setColor(5)
+			:setColor(WildColorID)
 	end
 
 	local function reversePlayersOrder()
@@ -535,7 +558,7 @@ local sceneGame = Macro.new(function (events, ...)
 		local card = inv[cardId][#inv[cardId]]
 		local type, color = Card.fullIdToTypeAndColor(cardId)
 		local currentColor = Sync.getColor()
-		if color == 5 and currentColor < 100 then
+		if color == WildColorID and currentColor < 100 then
 			card:setColor(currentColor)
 		end
 	end
@@ -687,10 +710,10 @@ local sceneGame = Macro.new(function (events, ...)
 		local topType,topColor = Card.fullIdToTypeAndColor(topCard)
 		local cardType,color = Card.fullIdToTypeAndColor(cardId)
 		local currentColor = Sync.getColor()
-		if currentColor == 254 then
+		if currentColor == Wild2ColorID then
 			return
 		end
-		if not (color == 5 or color == currentColor or topType == cardType) then
+		if not (color == WildColorID or color == currentColor or topType == cardType) then
 			return
 		end
 		local drawCards = 0
@@ -698,18 +721,23 @@ local sceneGame = Macro.new(function (events, ...)
 			drawCards = 2
 		elseif cardType == 15 then
 			drawCards = 4
+		elseif cardType == 18 then
+			drawCards = 12
+		elseif cardType == 24 then
+			drawCards = 1
 		end
 		if Sync.getDrawCardsCount() >= 1 then
 			if drawCards == 0 then
 				return
 			end
-			if not Sync.getBitFlag(0) then -- +2 on +4
-				if cardType == 14 and topType == 15 then
+			if not Sync.getBitFlag(0) then -- Card Stacking
+				if cardType == 14 and (topType==14 or topType==15 or topType==18 or topType==24) then
 					return
-				end
-			end
-			if not Sync.getBitFlag(1) then -- +4 on +2
-				if cardType == 15 and topType == 14 then
+				elseif cardType == 15 and (topType==14 or topType==15 or topType==18 or topType==24) then
+					return
+				elseif cardType == 18 and (topType==14 or topType==15 or topType==18 or topType==24) then
+					return
+				elseif cardType == 24 and (topType==14 or topType==15 or topType==18 or topType==24) then
 					return
 				end
 			end
@@ -726,8 +754,8 @@ local sceneGame = Macro.new(function (events, ...)
 				reversePlayersOrder()
 			end
 		end
-		if color == 5 then
-			Sync.setColor(254)
+		if color == WildColorID then
+			Sync.setColor(Wild2ColorID)
 		else
 			Sync.setColor(color)
 			nextPlayer()
@@ -750,7 +778,7 @@ local sceneGame = Macro.new(function (events, ...)
 		card:setPos(-1, 0.323, 0)
 			:setRot(0, 0, 180)
 			:setType(17)
-			:setColor(5)
+			:setColor(WildColorID)
 			:setTag("gameCard")
 			:setId("card;;-1")
 
@@ -761,7 +789,7 @@ local sceneGame = Macro.new(function (events, ...)
 			if Sync.getCurrentPlayer() ~= name then
 				return
 				end
-			if Sync.getColor() == 254 then
+			if Sync.getColor() == Wild2ColorID then
 				return
 			end
 			if Card.isValidCardId(Sync.getDrawToMatchCard()) then
@@ -783,7 +811,69 @@ local sceneGame = Macro.new(function (events, ...)
 			local nextCard = Sync.getNextCard()
 			if Sync.getBitFlag(2) then -- require playing drawed card
 				if dropCard(nextCard) then
-					Sync.drawCard("!", nextCard)
+					local dropped,color,id=dropCard(nextCard)
+					if dropped then
+						local genCard=Card.typeAndColorToFullId(id,color)
+						if nextCard~=genCard then nextCard=genCard end
+						Sync.drawCard("!", nextCard)
+						local id,color=Card.fullIdToTypeAndColor(nextCard)
+						local dropAmount=0
+						if id==19 then dropAmount=12 end
+						if id==20 then dropAmount=4 end
+						if id==22 then dropAmount=2 end
+						if id==23 then dropAmount=1 end
+						if id==21 or id==27 then
+							local name=Sync.getCurrentPlayer()
+							if id==27 then
+								local playersOrder = Sync.getPlayersOrder()
+								name = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
+							end
+							local cards=Sync.getCards(name)
+							local cardIDXs={}
+							for i,card2 in ipairs(cards) do
+								local _,color2=Card.fullIdToTypeAndColor(card2)
+								if color2==color then table.insert(cardIDXs,i)end end
+							while #cardIDXs>0 do
+								Sync.removeCard(name,cardIDXs[#cardIDXs])
+								cards,cardIDXs=Sync.getCards(name),{}
+								for i,card2 in ipairs(cards) do
+									local _,color2=Card.fullIdToTypeAndColor(card2)
+									if color2==color then table.insert(cardIDXs,i)end end
+							end
+						end
+						if id==25 or id==26 then
+							local name=Sync.getCurrentPlayer()
+							if id==26 then
+								local playersOrder = Sync.getPlayersOrder()
+								name = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
+							end
+							local cards=Sync.getCards(name)
+							local cardIDXs={}
+							for i,card2 in ipairs(cards) do
+								local id2,_=Card.fullIdToTypeAndColor(card2)
+								if id2>11 then table.insert(cardIDXs,i)end end
+							while #cardIDXs>0 do
+								Sync.removeCard(name,cardIDXs[#cardIDXs])
+								cards,cardIDXs=Sync.getCards(name),{}
+								for i,card2 in ipairs(cards) do
+									local id2,_=Card.fullIdToTypeAndColor(card2)
+									if id2>11 then table.insert(cardIDXs,i)end end
+							end
+						end
+						if dropAmount>0 then
+							for _=1,dropAmount do
+								local cards=Sync.getCards(name)
+								local cardCount=#cards
+								if cardCount>0 then
+									local rand=math.random(cardCount)
+									Sync.removeCard(name,rand)
+								end
+							end
+						end
+					else
+						Sync.drawCard(name, nextCard)
+						nextPlayer()
+					end
 				else
 					Sync.drawCard(name, nextCard)
 					nextPlayer()
@@ -815,7 +905,7 @@ local sceneGame = Macro.new(function (events, ...)
 	local function hasAnyCardsCheck()
 		local currentPlayer = Sync.getCurrentPlayer()
 		local currentColor = Sync.getColor()
-		local isSpecialColor = currentColor == 5 or currentColor == 254
+		local isSpecialColor = currentColor == WildColorID or currentColor == Wild2ColorID
 		for _, name in pairs(Sync.getPlayersOrder()) do
 			if #Sync.getRawCards(name) == 0 then
 				if currentPlayer ~= name or not isSpecialColor then
@@ -1113,12 +1203,15 @@ local sceneGame = Macro.new(function (events, ...)
 			}
 		end
 		colorChoiceCards = {}
-		if color ~= 254 then
+		if color ~= Wild2ColorID and not Sync.getBitFlag(3) then
 			return
 		end
-		for i = 1, 4 do
+		local idxAmount = RandomColorID-1
+		if Sync.getBitFlag(4) then idxAmount=4 end
+		for i = 1, idxAmount do
 			local x = i % 2 - 0.5
-			local y = math.floor((i - 1) / 2) - 0.5
+			local y = math.floor((i - 1) / 2) - 1.5
+			if Sync.getBitFlag(4) then y = math.floor((i - 1) / 2) - 0.5 end
 			local scale = 0.5
 			local card = Card.new()
 			local height = cardStackHeight + 0.1
@@ -1308,6 +1401,39 @@ local sceneGame = Macro.new(function (events, ...)
 		Sync.events.BIT_FLAG_CHANGE:remove('gameBitFlagChange')
 		Sync.events.DRAW_TO_MATCH_CHANGE:remove('gameDrawToMatchChange')
 	end)
+
+	events.tick:register(function()
+		local CardLookupTable=Card.getCardIdsLookup()
+		for i,v in pairs(CardLookupTable) do
+			if v.color==RandomColorID then
+				v.model2.Background:setUV(Card.colorUV[math.random(#Card.colorUV-1)] / 81)
+			end
+			if v.type==RandomIconID then
+				v.model2.numbers:setUV(Card.iconUV[math.random((#Card.iconUV-2)+1)] / 81)
+			end
+			if v.owner=="ToastTextures" then
+				v:setIcon(1)
+			elseif v.owner=="GNUI" then
+				v:setIcon(2)
+			elseif v.owner=="AuriaFoxGirl" then
+				v:setIcon(3)
+			elseif v.owner=="Stevemine26" then
+				v:setIcon(4)
+			elseif v.owner=="Just_Ghasty" then
+				v:setIcon(5)
+			elseif v.owner=="NikoSolstice" then
+				v:setIcon(6)
+			elseif v.owner=="HazzyMattyThing" then
+				v:setIcon(7)
+			end
+		end
+		local nextPlayer = Sync:getPlayersOrder()[(Sync:getCurrentPlayerIndex()%Sync:getPlayersCount())+1]
+		if nextPlayer and Sync:getPlayersCount()>2 then
+			nextPlayerText:setText("Next: "..tostring(nextPlayer))
+		else
+			nextPlayerText:setText("")
+		end
+	end)
 end)
 
 
@@ -1495,7 +1621,7 @@ if host:isHost() then
 
 	local setMode
 
-	action:setTexture(textures["una.atlas"], 48, 48, 16, 16, 1.5)
+	action:setTexture(textures["una.atlas"], 55, 69, 8, 11, 1.5)
 
 	local function playGame()
 		Game.placeOnTargetedBlock()
