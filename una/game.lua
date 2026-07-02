@@ -762,8 +762,8 @@ local sceneGame = Macro.new(function (events, ...)
 		local currentPlayer = Sync.getCurrentPlayer()
 		local cardRot = Sync.getPlayerRot(currentPlayer) - 90
 		Sync.setPlayerRot("!", cardRot)
-		local isSkip = cardType == 13-- or cardType == 29
-		local skipBack = cardType == 29
+		local isSkip = cardType == 13-- or cardType == 28
+		local skipBack = false--cardType == 28
 		if cardType == 12 then
 			if Sync.getPlayersCount() <= 2 then
 				isSkip = true
