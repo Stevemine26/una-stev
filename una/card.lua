@@ -102,7 +102,7 @@ CardAPI.iconUV = {
 	vec(27, 44), -- DROPSPECIAL
 	vec(36, 44), -- DROPSPECIALNEXT
 	vec(45, 44), -- DROPCOLORNEXT
---	vec(54,33),
+  	--vec(63, 33), -- SKIPBACK
 	vec(45,  0), -- RANDOM
 }
 RandomIconID,RandomColorID,WildColorID,Wild2ColorID,LimboColor,LimboColor2=#CardAPI.iconUV,#CardAPI.colorUV-1,#CardAPI.colorUV,#CardAPI.colorUV+1,#CardAPI.colorUV+2,#CardAPI.colorUV+3
@@ -134,7 +134,7 @@ RandomIconID,RandomColorID,WildColorID,Wild2ColorID,LimboColor,LimboColor2=#Card
 ---| "DROPSPECIAL"
 ---| "DROPSPECIALNEXT"
 ---| "DROPCOLORNEXT"
----| "LIMBO"
+---| "SKIPBACK"
 ---| "RANDOM"
 
 CardAPI.playerUV = {
@@ -187,7 +187,7 @@ CardAPI.index2type = {
 	"DROPSPECIAL",
 	"DROPSPECIALNEXT",
 	"DROPCOLORNEXT",
---	"LIMBO",
+  	--"SKIPBACK",
 	"RANDOM",
 }
 
