@@ -28,10 +28,20 @@ function addPlayer(name,cards)
             end
         end
     elseif type(name)=="string" then
-        if gameState==2 then
-            Sync.addPlayerAndSetCards(name,cards,false)
+        if name=="!All" then
+            for i,v in pairs(world.getPlayers()) do
+                if gameState==2 then
+                    Sync.addPlayerAndSetCards(v:getName(),cards,false)
+                else
+                    Sync.addPlayer(v:getName(),false)
+                end
+            end
         else
-            Sync.addPlayer(name,false)
+            if gameState==2 then
+                Sync.addPlayerAndSetCards(name,cards,false)
+            else
+                Sync.addPlayer(name,false)
+            end
         end
     else
         error("name not string or table of strings")
@@ -40,29 +50,23 @@ end
 function removePlayer(name)
     Sync.removePlayer(name,false)
 end
-function drawCard(name,id,color,amount)
+function drawCard(name,id,amount)
     if type(id)=="string" then
         id=Card.type2index(id)
-    end
-    if type(color)=="string" then
-        color=Card.color2index(color)
     end
     if name =="!All" then
         for i=1,Sync.getPlayersCount() do
-            for _=1,1 or amount do Sync.drawCard(Sync.getPlayersOrder()[i],Card.typeAndColorToFullId(id,color)) end
+            for _=1,1 or amount do Sync.drawCard(Sync.getPlayersOrder()[i],Card.typeAndColorToFullId(id,1)) end
         end
     else
-        for _=1,1 or amount do Sync.drawCard(name,Card.typeAndColorToFullId(id,color)) end
+        for _=1,1 or amount do Sync.drawCard(name,Card.typeAndColorToFullId(id,1)) end
     end
 end
-function setCard(name,id,color,idx)
+function setCard(name,id,idx)
     if type(id)=="string" then
         id=Card.type2index(id)
     end
-    if type(color)=="string" then
-        color=Card.color2index(color)
-    end
-    Sync.setCard(name,idx,Card.typeAndColorToFullId(id,color),false)
+    Sync.setCard(name,idx,Card.typeAndColorToFullId(id,1),false)
 end
 function drawRandomCard(name,amount)
     if name == "!All" then
@@ -73,8 +77,8 @@ function drawRandomCard(name,amount)
         for _=1,1 or amount do Sync.drawCard(name,nil) end
     end
 end
-function setNext(id,color)
-    Sync.setNextCard(Card.typeAndColorToFullId(id,color))
+function setNext(id)
+    Sync.setNextCard(Card.typeAndColorToFullId(id,1))
 end
 function getNext()
     return Sync.getNextCard()
@@ -92,11 +96,11 @@ function setBit(bit,value)
         Sync.setBitFlag(bit,0)
     end
 end
-function setHell(value)
+function setCustom(value)
     if not value then
-        Sync.setBitFlag(2,0)
+        Sync.setBitFlag(3,0)
     else
-        Sync.setBitFlag(2,1)
+        Sync.setBitFlag(3,1)
     end
     Card.regenCards()
 end
@@ -137,7 +141,6 @@ function repositionPlayer(name)
 	for _, name in pairs(Sync.getPlayersOrder()) do
 		requestCardUpdate(name)
 	end
-
 end
 
 events.ENTITY_INIT:register(function()

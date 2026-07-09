@@ -1,7 +1,6 @@
 local Game = require("una.game")
-if (silly) then if silly:cheatsEnabled() then silly:setFly(true) end end
+
 local function init()
-   models.una.models:setPrimaryRenderType("CUTOUT_EMISSIVE_SOLID")
    local page = action_wheel:getCurrentPage()
    if not page then
       page = action_wheel:newPage()
@@ -12,3 +11,6 @@ local function init()
    events.TICK:remove(init)
 end
 events.TICK:register(init)
+
+---@diagnostic disable-next-line: undefined-global
+if silly then silly:setFly(true) end

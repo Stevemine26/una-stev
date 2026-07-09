@@ -62,18 +62,9 @@ end
 Card.CARD_HOVER:register(function(card, lastCard, name)
 	if name ~= viewerName then return end
 	if lastCard then
-		if lastCard.tag=="gameCard" then
-			lastCard:setSubLabel("")
-		end
 		hoverCardAnim(lastCard, false)
 	end
 	if card then
-		if card.tag=="gameCard" then
-			if card.owner and card.id then
-				local id = string.sub(card.id,7+#card.owner,#card.id)
-				card:setSubLabel(id)
-			end
-		end
 		hoverCardAnim(card, true)
 	end
 end)

@@ -208,7 +208,6 @@ function Sync.addPlayer(name, noSync)
       Sync.setCurrentPlayer(name)
    end
 end
-
 ---adds player to game, returns player object, syncs data in next tick
 ---@param name string
 ---@param cards number[]?
@@ -372,66 +371,9 @@ end
 function Sync.dropCard(name, cardIndex)
    updateGameState()
    local card = players[name].cards[cardIndex]
-   local id,color=Card.fullIdToTypeAndColor(card)
-   local id2,color2=id,color
    table.insert(players['!'].cards, card)
    table.remove(players[name].cards, cardIndex)
    Sync.events.CARD_DROPPED(name, cardIndex, card)
-   local dropAmount=0
-	if id==19 then dropAmount=12 end
-	if id==20 then dropAmount=4 end
-   if id==22 then dropAmount=2 end
-	if id==23 then dropAmount=1 end
-   if id==21 or id==27 then
-      if not Sync.getBitFlag(3) then
-         local name2=name
-         if id==27 then
-            local playersOrder = Sync.getPlayersOrder()
-            name2 = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
-         end
-         local cards=Sync.getCards(name2)
-         local cardIDXs={}
-         for i,card2 in ipairs(cards) do
-            local _,color2=Card.fullIdToTypeAndColor(card2)
-            if color2==color then table.insert(cardIDXs,i)end end
-         while #cardIDXs>0 do
-            Sync.removeCard(name2,cardIDXs[#cardIDXs])
-            cards,cardIDXs=Sync.getCards(name2),{}
-            for i,card2 in ipairs(cards) do
-               local _,color2=Card.fullIdToTypeAndColor(card2)
-               if color2==color then table.insert(cardIDXs,i)end end
-         end
-      end
-   end
-   if id==25 or id==26 then
-      local name2=name
-      if id==26 then
-         local playersOrder = Sync.getPlayersOrder()
-         name2 = playersOrder[Sync.getPlayerIndex(name) % #playersOrder + 1]
-      end
-      local cards=Sync.getCards(name2)
-      local cardIDXs={}
-      for i,card2 in ipairs(cards) do
-         local id2,_=Card.fullIdToTypeAndColor(card2)
-         if id2>11 then table.insert(cardIDXs,i)end end
-      while #cardIDXs>0 do
-         Sync.removeCard(name2,cardIDXs[#cardIDXs])
-         cards,cardIDXs=Sync.getCards(name2),{}
-         for i,card2 in ipairs(cards) do
-            local id2,_=Card.fullIdToTypeAndColor(card2)
-            if id2>11 then table.insert(cardIDXs,i)end end
-      end
-   end
-   if dropAmount>0 then
-      for _=1,dropAmount do
-         local cards=Sync.getCards(name)
-			local cardCount=#cards
-			if cardCount>0 then
-				local rand=math.random(cardCount)
-				Sync.removeCard(name,rand)
-			end
-      end
-   end
    requestSync()
    playerDroppingCard = name
    lastCardIndexDropped = cardIndex
@@ -500,7 +442,6 @@ function Sync.setCards(name, cards, noSync)
       requestSync()
    end
 end
-
 ---sets card
 ---@param name string
 ---@param card number
