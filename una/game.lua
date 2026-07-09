@@ -501,6 +501,10 @@ local sceneGame = Macro.new(function (events, ...)
 		Sync.setCurrentPlayer(Sync.getCurrentPlayerIndex() + 1)
 		-- print("next turn", Sync.getCurrentPlayer())
 	end
+	local function prevPlayer()
+		Sync.setCurrentPlayer(Sync.getCurrentPlayerIndex() - 1)
+		-- print("next turn", Sync.getCurrentPlayer())
+	end
 
 	---sets card, hide it if its other's player
 	---@param name string
@@ -722,7 +726,7 @@ local sceneGame = Macro.new(function (events, ...)
 		local currentPlayer = Sync.getCurrentPlayer()
 		local cardRot = Sync.getPlayerRot(currentPlayer) - 90
 		Sync.setPlayerRot("!", cardRot)
-		local isSkip = cardType == 7 or cardType == 8
+		local isSkip = cardType == 7 or cardType == 8 or cardType == 11
 		if cardType == 6 then
 			if Sync.getPlayersCount() <= 2 then
 				isSkip = true
@@ -737,8 +741,15 @@ local sceneGame = Macro.new(function (events, ...)
 			nextPlayer()
 		end
 		if isSkip then
-			nextPlayer()
-			if cardType==8 then nextPlayer()end
+			if cardType==8 then
+				nextPlayer()
+				nextPlayer()
+			elseif cardType==11 then
+				prevPlayer()
+				prevPlayer()
+			else
+				nextPlayer()
+			end
 		end
 		if drawCards >= 1 then
 			Sync.setDrawCardsCount(Sync.getDrawCardsCount() + drawCards)
