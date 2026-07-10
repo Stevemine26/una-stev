@@ -1166,21 +1166,43 @@ local sceneGame = Macro.new(function (events, ...)
 				local cardsStack = Sync.getRawCards("!")
 				local topCard = cardsStack[#cardsStack]
 				local topType,_ = Card.fullIdToTypeAndColor(topCard)
+				local player3 = card.label
 				if topType==9 then
-					local player3 = card.label
 					for _=1,2 do
 						Sync.drawCard(player3)
 					end
+					Sync.setColor(1)
+					nextPlayer()
+					requestCardUpdate("!")
 				elseif topType==10 then
-					local player3 = card.label
 					local playerCards=Sync.getCards(player)
+					if player3=="!Random" then
+						player3=Sync.getPlayersOrder()[math.random(#Sync.getPlayersOrder())]
+						while player3==player and Sync.getPlayersCount()>1 do player3=Sync.getPlayersOrder()[math.random(#Sync.getPlayersOrder())]end
+					end
 					local player3Cards=Sync.getCards(player3)
+					if player==player3 and Sync.getPlayersCount()>1 then
+						goto skip
+					end
 					Sync.setCards(player,player3Cards,true)
 					Sync.setCards(player3,playerCards,false)
+					Sync.setColor(1)
+					nextPlayer()
+					requestCardUpdate("!")
+					goto done
+					::skip::
+					card:setLabel("!Random")
+					::done::
 				end
-				Sync.setColor(1)
-				nextPlayer()
-				requestCardUpdate("!")
+			end)
+			card.CARD_HOVER:register(function()
+				local cardsStack = Sync.getRawCards("!")
+				local topCard = cardsStack[#cardsStack]
+				local topType,_ = Card.fullIdToTypeAndColor(topCard)
+				local player3 = card.label
+				if topType==10 and player3==player and Sync.getPlayersCount()>1 then
+					card:setLabel("!Random")
+				end
 			end)
 			Tween.new{
 				duration = 0.5,
