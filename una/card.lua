@@ -47,7 +47,8 @@ CardAPI.iconUV = {
 	vec( 0, 11), -- DRAW2TARGET 
 	vec( 9, 11), -- SWAPPLR
 	--CUSTOM (not in the game)
-	vec(18,  11), -- SKIPBACK
+	vec(18, 11), -- SKIPBACK
+	vec(27, 11), -- SKIPTO
 }
 ---@alias CardType
 ---| "EMPTY"
@@ -61,6 +62,7 @@ CardAPI.iconUV = {
 ---| "DRAW2TARGET"
 ---| "SWAPPLR"
 ---| "SKIPBACK"
+---| "SKIPTO"
 
 CardAPI.index2color = {
 	"BLACK",
@@ -79,6 +81,7 @@ CardAPI.index2type = {
 	"SWAPPLR",
 	--CUSTOM (not in the game)
 	"SKIPBACK",
+	"SKIPTO",
 }
 
 CardAPI.color2index = {}
@@ -142,10 +145,10 @@ end
 
 CardAPI.randomCardList = {}
 function CardAPI.regenCards()
+	--table.insert(CardAPI.randomCardList, CardAPI.typeAndColorToFullId(3, 1))
 	table.insert(CardAPI.randomCardList, CardAPI.typeAndColorToFullId(3, 1))
 	table.insert(CardAPI.randomCardList, CardAPI.typeAndColorToFullId(3, 1))
-	table.insert(CardAPI.randomCardList, CardAPI.typeAndColorToFullId(3, 1))
-	for cardType = 3, 10 do
+	for cardType = 4, 10 do
 		local id = CardAPI.typeAndColorToFullId(cardType, 1)
 		table.insert(CardAPI.randomCardList, id)
 	end

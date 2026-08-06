@@ -60,6 +60,8 @@ local gameSettings = {
 	{name = "+4 on +2\nstacking", bit = 1, default = true},
 	{name = "require\nplaying\ndrawed\ncard", bit = 2, default = false},
 	{name = "custom\ncards", bit = 3, default = false},
+	{name = "skipto\nredirect", bit = 4, default = false},
+	{name = "draw\nredirect", bit = 5, default = false},
 }
 
 --[[
@@ -708,16 +710,21 @@ local sceneGame = Macro.new(function (events, ...)
 			drawCards = 4
 		end
 		if Sync.getDrawCardsCount() >= 1 then
-			if drawCards == 0 then
-				return
-			end
-			if not Sync.getBitFlag(0) then -- +2 on +4
-				if cardType == 5 and topType == 4 then
-					return
+			if drawCards ~= 0 then
+				if not Sync.getBitFlag(0) then -- +2 on +4
+					if cardType == 5 and topType == 4 then
+						return
+					end
 				end
-			end
-			if not Sync.getBitFlag(1) then -- +4 on +2
-				if cardType == 4 and topType == 5 then
+				if not Sync.getBitFlag(1) then -- +4 on +2
+					if cardType == 4 and topType == 5 then
+						return
+					end
+				end
+			else
+				if Sync.getBitFlag(4) and cardType==12 then
+				elseif Sync.getBitFlag(5) and cardType==9 then
+				else
 					return
 				end
 			end
@@ -734,7 +741,7 @@ local sceneGame = Macro.new(function (events, ...)
 				reversePlayersOrder()
 			end
 		end
-		if cardType == 9 or cardType == 10 then
+		if cardType == 9 or cardType == 10 or cardType==12 then
 			Sync.setColor(254)
 		else
 			Sync.setColor(color)
@@ -1168,9 +1175,10 @@ local sceneGame = Macro.new(function (events, ...)
 				local topType,_ = Card.fullIdToTypeAndColor(topCard)
 				local player3 = card.label
 				if topType==9 then
-					for _=1,2 do
+					for _=1,Sync.getDrawCardsCount()+2 do
 						Sync.drawCard(player3)
 					end
+					Sync.setDrawCardsCount(0,true)
 					Sync.setColor(1)
 					nextPlayer()
 					requestCardUpdate("!")
@@ -1185,7 +1193,7 @@ local sceneGame = Macro.new(function (events, ...)
 						goto skip
 					end
 					Sync.setCards(player,player3Cards,true)
-					Sync.setCards(player3,playerCards,false)
+					Sync.setCards(player3,playerCards,true)
 					Sync.setColor(1)
 					nextPlayer()
 					requestCardUpdate("!")
@@ -1193,6 +1201,10 @@ local sceneGame = Macro.new(function (events, ...)
 					::skip::
 					card:setLabel("!Random")
 					::done::
+				elseif topType==12 then
+					Sync.setColor(1,true)
+					Sync.setCurrentPlayer(player3)
+					requestCardUpdate("!")
 				end
 			end)
 			card.CARD_HOVER:register(function()
