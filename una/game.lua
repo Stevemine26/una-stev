@@ -62,6 +62,7 @@ local gameSettings = {
 	{name = "custom\ncards", bit = 3, default = false},
 	{name = "skipto\nredirect", bit = 4, default = false},
 	{name = "draw\nredirect", bit = 5, default = false},
+	{name = "ULTRA\nKILL\nparry\nsfx", bit = 6, default = false},
 }
 
 --[[
@@ -709,6 +710,7 @@ local sceneGame = Macro.new(function (events, ...)
 		elseif cardType == 4 then
 			drawCards = 4
 		end
+		local isSkip = false
 		if Sync.getDrawCardsCount() >= 1 then
 			if drawCards ~= 0 then
 				if not Sync.getBitFlag(0) then -- +2 on +4
@@ -724,6 +726,9 @@ local sceneGame = Macro.new(function (events, ...)
 			else
 				if Sync.getBitFlag(4) and cardType==12 then
 				elseif Sync.getBitFlag(5) and cardType==9 then
+				elseif cardType==13 then
+					if Sync.getBitFlag(6) then pings.sound("una.parry","(Card) +PARRY",Sync.getGamePos(),0.25) end
+					isSkip=true
 				else
 					return
 				end
@@ -733,7 +738,8 @@ local sceneGame = Macro.new(function (events, ...)
 		local currentPlayer = Sync.getCurrentPlayer()
 		local cardRot = Sync.getPlayerRot(currentPlayer) - 90
 		Sync.setPlayerRot("!", cardRot)
-		local isSkip = cardType == 7 or cardType == 8 or cardType == 11
+		if not isSkip and cardType==13 then if Sync.getBitFlag(6) then pings.sound("una.punch","(Card) Parry fail",Sync.getGamePos(),0.5) end end
+		isSkip = isSkip or cardType == 7 or cardType == 8 or cardType == 11
 		if cardType == 6 then
 			if Sync.getPlayersCount() <= 2 then
 				isSkip = true
@@ -751,7 +757,7 @@ local sceneGame = Macro.new(function (events, ...)
 			if cardType==8 then
 				nextPlayer()
 				nextPlayer()
-			elseif cardType==11 then
+			elseif cardType==11 or cardType==13 then
 				prevPlayer()
 				prevPlayer()
 			else

@@ -46,9 +46,10 @@ CardAPI.iconUV = {
 	vec(45,  0), -- SKIP2   
 	vec( 0, 11), -- DRAW2TARGET 
 	vec( 9, 11), -- SWAPPLR
-	--CUSTOM (not in the game)
+	--CUSTOM (not in the normal game)
 	vec(18, 11), -- SKIPBACK
 	vec(27, 11), -- SKIPTO
+	vec(36, 11), -- PARRY
 }
 ---@alias CardType
 ---| "EMPTY"
@@ -63,6 +64,7 @@ CardAPI.iconUV = {
 ---| "SWAPPLR"
 ---| "SKIPBACK"
 ---| "SKIPTO"
+---| "PARRY"
 
 CardAPI.index2color = {
 	"BLACK",
@@ -79,9 +81,10 @@ CardAPI.index2type = {
 	"SKIP2",
 	"DRAW2TARGET",
 	"SWAPPLR",
-	--CUSTOM (not in the game)
+	--CUSTOM (not in the normal game)
 	"SKIPBACK",
 	"SKIPTO",
+	"PARRY",
 }
 
 CardAPI.color2index = {}

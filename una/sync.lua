@@ -835,4 +835,8 @@ function Sync.test(func)
 end
 --
 
+function pings.sound(snd,subtitle,pos,vol)
+   sounds[snd]:subtitle(subtitle):setPos(pos):setVolume(vol):play()
+end
+
 return Sync
