@@ -50,6 +50,7 @@ CardAPI.iconUV = {
 	vec(18, 11), -- SKIPBACK
 	vec(27, 11), -- SKIPTO
 	vec(36, 11), -- PARRY
+	vec(45, 11), -- BLIND
 }
 ---@alias CardType
 ---| "EMPTY"
@@ -65,6 +66,7 @@ CardAPI.iconUV = {
 ---| "SKIPBACK"
 ---| "SKIPTO"
 ---| "PARRY"
+---| "BLIND"
 
 CardAPI.index2color = {
 	"BLACK",
@@ -85,6 +87,7 @@ CardAPI.index2type = {
 	"SKIPBACK",
 	"SKIPTO",
 	"PARRY",
+	"BLIND",
 }
 
 CardAPI.color2index = {}
@@ -158,7 +161,9 @@ function CardAPI.regenCards()
 	if bit32.btest(bitFlags, 2 ^ 3) then
 		for cardType = 11, #CardAPI.iconUV do
 			local id = CardAPI.typeAndColorToFullId(cardType, 1)
+			if cardType==14 and bit32.btest(bitFlags, 2 ^ 9) and bit32.btest(bitFlags, 2 ^ 8) then goto skipAdding end
 			table.insert(CardAPI.randomCardList, id)
+			::skipAdding::
 		end
 	end
 end
@@ -203,6 +208,7 @@ CardAPI.CARD_HOVER = Event.new()
 ---@field PRESSED Event
 ---@field [any] any
 ---@field CARD_HOVER Event
+---@field hidden boolean
 local Card = {}
 Card.__index = Card
 
@@ -239,6 +245,8 @@ function CardAPI.new(parent)
 		
 		PRESSED = Event.new(),
 		CARD_HOVER = Event.new(),
+
+		hidden=false
 	}
 	for key, original in pairs(CARD_MODEL:getChildren()) do
 		local part = original:copy(original:getName()):scale(INV_SCALE):setPos(original:getPos()+OFFSET):setRot(original:getRot())

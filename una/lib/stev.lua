@@ -1,0 +1,1 @@
+function table.swap(tbl,i,j)tbl[i],tbl[j]=tbl[j],tbl[i] end

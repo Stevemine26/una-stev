@@ -11,7 +11,7 @@ local gamePos = vec(0, 0, 0)
 
 -- hard limit of 255 players because of syncing
 -- position -1 - temporary, position -2 - meta
----@type {[string]: {position: number, cards: number[], rot: number}}
+---@type {[string]: {position: number, cards: number[], rot: number, blinded: integer}}
 local players = {}
 local playersOrder = {}
 local currentPlayer = nil
@@ -201,13 +201,41 @@ function Sync.addPlayer(name, noSync)
    players[name] = {
       position = #playersOrder,
       rot = 0,
-      cards = {}
+      cards = {},
+      blinded=0
    }
    Sync.events.PLAYER_JOIN(name)
    if not currentPlayer then
       Sync.setCurrentPlayer(name)
    end
 end
+
+---should this player be blinded (cards hidden)
+---@param name string
+---@param turns integer
+---@param noSync boolean? # used internally by library
+function Sync.setBlinded(name, turns, noSync)
+   if not players[name] then
+      return
+   end
+   updateGameState()
+   players[name].blinded=turns
+   local plrCards = players[name].cards
+   for i,id in ipairs(plrCards)do
+      if turns>0 and bit32.btest(bitFlags, 2 ^ 9) then
+         local card=Card.getCardById("card;"..name..";"..tostring(i))
+         if card then card:setType(2)end
+      else
+         local type,_=Card.fullIdToTypeAndColor(id)
+         local card=Card.getCardById("card;"..name..";"..tostring(i))
+         if card and client:getViewer():getName()==name then card:setType(type)end
+      end
+   end
+   if not noSync then
+      requestSync()
+   end
+end
+
 ---adds player to game, returns player object, syncs data in next tick
 ---@param name string
 ---@param cards number[]?
@@ -227,7 +255,8 @@ function Sync.addPlayerAndSetCards(name, cards, noSync)
    players[name] = {
       position = #playersOrder,
       rot = 0,
-      cards = cards
+      cards = cards,
+      blinded=0
    }
    if not noSync then
       requestSync()
@@ -493,7 +522,7 @@ function Sync.getRawCards(name)
 end
 
 ---returns internal player data, please dont edit it manually
----@return {[string]: table}
+---@return {[string]: {position: number, cards: number[], rot: number, blinded: integer}}
 function Sync.getPlayersData()
    return players
 end
@@ -617,7 +646,7 @@ local function unaSync(encoded)
    playersOrder = {}
    local newPlayers = {}
    local newCards = {} ---@type {[string]: number[]}
-   for name, rot, cards in encoded:sub(14, -1):gmatch('([^\0]*)\0(..)([^\0]*)\0') do
+   for name, rot, blind, cards in encoded:sub(14, -1):gmatch('([^\0]*)\0(..)\0(.)([^\0]*)\0') do
       local playerData = players[name]
       if not playerData then
          playerData = {cards = {}} -- init player
@@ -631,8 +660,9 @@ local function unaSync(encoded)
          playerData.position = #playersOrder
       end
       playerData.rot = (decodeShort(rot) / 65536 * 360) % 360
+      playerData.blinded=blind:byte(1,1)or 0 -- added
       -- set cards
-      newCards[name] = {cards:byte(1, -1)}
+      newCards[name] = {cards:byte(1, -1)} -- modified
    end
    -- read variables
    Sync.setCurrentPlayer(encoded:byte(2), true)
@@ -727,6 +757,8 @@ local function encodePlayer(tbl, name)
    table.insert(tbl, '\0') -- string ending
    local playerData = players[name]
    table.insert(tbl, encodeShort((playerData.rot % 360) / 360 * 65536))
+   table.insert(tbl, '\0') -- rot ending
+   table.insert(tbl, string.char(math.clamp((tonumber(playerData.blinded) or 0),0,255))) --added
    for _, card in ipairs(playerData.cards) do
       table.insert(tbl, string.char(card))
    end

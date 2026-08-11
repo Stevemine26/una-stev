@@ -59,10 +59,13 @@ local gameSettings = {
 	{name = "+2 on +4\nstacking", bit = 0, default = true},
 	{name = "+4 on +2\nstacking", bit = 1, default = true},
 	{name = "require\nplaying\ndrawed\ncard", bit = 2, default = false},
-	{name = "custom\ncards", bit = 3, default = false},
-	{name = "skipto\nredirect", bit = 4, default = false},
+	{name = "swap\nwith\nself", bit = 7, default = false},
 	{name = "draw\nredirect", bit = 5, default = false},
-	{name = "ULTRA\nKILL\nparry\nsfx", bit = 6, default = false},
+	{name = "custom\ncards", bit = 3, default = false},
+	{name = "blinding\nshuffles\nhand", bit = 8, default = true},
+	{name = "blinding\nhides\nhand", bit = 9, default = true},
+	{name = "skipto\nredirect", bit = 4, default = false},
+	{name = "ULTRA\nKILL\nparry\nsfx", bit = 6, default = true},
 }
 
 --[[
@@ -166,10 +169,12 @@ local sceneIntermission = Macro.new(function (events, ...)
 		end
 		settingsCards = {}
 		for i, setting in pairs(gameSettings) do
+			local j=math.floor((i+2)/3)
+			--print(i,j)
 			local card = Card.new()
 			animateSettingsCard(card, true)
 			settingsCards[i] = card
-			card:setPos(1 - i, 0, 0)
+			card:setPos(1-j, 0,((i%3)-1))
 				:setLabel(setting.name, 0.33)
 				:setType(1)
 				:setOwner(hostName)
@@ -514,7 +519,7 @@ local sceneGame = Macro.new(function (events, ...)
 	---@param card Card
 	---@param cardId number
 	local function setCardStyle(name, card, cardId)
-		if name == viewerName or name == "!" then
+		if (name == viewerName or name == "!") and (Sync.getPlayersData()[name].blinded<1 or Sync.getBitFlag(9)) then
 			local type, color = Card.fullIdToTypeAndColor(cardId)
 			card:setType(type)
 				:setColor(color)
@@ -747,7 +752,7 @@ local sceneGame = Macro.new(function (events, ...)
 				reversePlayersOrder()
 			end
 		end
-		if cardType == 9 or cardType == 10 or cardType==12 then
+		if cardType == 9 or cardType == 10 or cardType==12 or cardType==14 then
 			Sync.setColor(254)
 		else
 			Sync.setColor(color)
@@ -880,7 +885,15 @@ local sceneGame = Macro.new(function (events, ...)
 		if name == "!" then
 			cardStackHeight = 0
 		else
-			table.sort(cardsSorted)
+			if Sync.getBitFlag(8) and Sync.getPlayersData()[name] and Sync.getPlayersData()[name].blinded>0 then
+				for i = #cardsSorted, 2, -1 do
+					local j = math.random(i)
+					cardsSorted[i], cardsSorted[j] = cardsSorted[j], cardsSorted[i]
+					-- Multi-assignment copies values, performing a swap without a temporary variable
+				end
+			else
+				table.sort(cardsSorted)
+			end
 			cardHoverAnim = "up"
 		end
 		-- update cards
@@ -1195,7 +1208,7 @@ local sceneGame = Macro.new(function (events, ...)
 						while player3==player and Sync.getPlayersCount()>1 do player3=Sync.getPlayersOrder()[math.random(#Sync.getPlayersOrder())]end
 					end
 					local player3Cards=Sync.getCards(player3)
-					if player==player3 and Sync.getPlayersCount()>1 then
+					if player==player3 and Sync.getPlayersCount()>1 and not Sync.getBitFlag(7)then
 						goto skip
 					end
 					Sync.setCards(player,player3Cards,true)
@@ -1205,11 +1218,17 @@ local sceneGame = Macro.new(function (events, ...)
 					requestCardUpdate("!")
 					goto done
 					::skip::
-					card:setLabel("!Random")
+					if not Sync.getBitFlag(7) then card:setLabel("!Random") end
 					::done::
 				elseif topType==12 then
 					Sync.setColor(1,true)
 					Sync.setCurrentPlayer(player3)
+					requestCardUpdate("!")
+				elseif topType==14 then
+					Sync.setBlinded(player3,5,true)
+					sounds["minecraft:entity.illusioner.prepare_blindness"]:setPos(gamePos):setSubtitle("(Card) "..player3.." gets blinded"):play()
+					Sync.setColor(1,true)
+					nextPlayer()
 					requestCardUpdate("!")
 				end
 			end)
@@ -1218,7 +1237,7 @@ local sceneGame = Macro.new(function (events, ...)
 				local topCard = cardsStack[#cardsStack]
 				local topType,_ = Card.fullIdToTypeAndColor(topCard)
 				local player3 = card.label
-				if topType==10 and player3==player and Sync.getPlayersCount()>1 then
+				if (not Sync.getBitFlag(7)) and topType==10 and player3==player and Sync.getPlayersCount()>1 then
 					card:setLabel("!Random")
 				end
 			end)
@@ -1263,6 +1282,16 @@ local sceneGame = Macro.new(function (events, ...)
 			end
 		}
 	end, "gameDrawCardsCountChange")
+
+	Sync.events.PLAYER_CURRENT_CHANGE:register(function(plrName,pos)
+		local plrData = Sync.getPlayersData()[plrName]
+		if plrData.blinded>0 then
+			if plrData.blinded-1<1 then
+				sounds["minecraft:entity.illusioner.cast_spell"]:setPos(Sync.getGamePos()):setSubtitle("(Card) "..plrName.."'s blindness clears"):play()
+			end
+			Sync.setBlinded(plrName,plrData.blinded-1,false)
+		end
+	end)
 
 	if host:isHost() then
 		local color = 1

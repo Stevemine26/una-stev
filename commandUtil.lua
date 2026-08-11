@@ -104,6 +104,7 @@ function setCustom(value)
     end
     Card.regenCards()
 end
+function setBlinded(name,turns)Sync.setBlinded(name,turns)end
 function repositionPlayer(name)
     local gamePos = Sync.getGamePos()
 	local entity = world.getPlayers()[name]

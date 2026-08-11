@@ -17,7 +17,13 @@ The game will end once a player has gotten rid of all of their cards
 * +2 on +4 stacking
 * +4 on +2 stacking
 * require playing drawn card
+* swap with self
+* draw redirect
 * custom cards (cards not in the orignal all-wild game)
+* blinding shuffles hand
+* blinding hides hand
+* skipto redirect
+* ULTRAKILL parry sfx
 
 Scripting done by [GN](https://github.com/GN68), [Auria](https://github.com/auriafoxgirl)
 
